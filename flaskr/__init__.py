@@ -3,31 +3,27 @@ from flask_restful import Api
 from flaskr.resources import Login, Logout, UserList, UserCreate, UserDelete, UserUpdate, OnlineUsers
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.orm import DeclarativeBase
+from flaskr.database import db
 import logging
-
-logging.basicConfig(level=logging.DEBUG)
 
 logging.info('Initializing app...')
 
 app = Flask(import_name=__name__)
 api = Api(app)
 
-logging.info('Initializing database connection...')
+logging.info('Setting database connection parameters...')
 
 username='postgres'
 password='labris123!'
 
 # Define the PostgreSQL URL
-postgresql_url = 'postgresql://{username}:{password}@localhost:5432/mydatabase'
+postgresql_url = f'postgresql://{username}:{password}@localhost:5432/postgres'
 
 app.config['SQLALCHEMY_DATABASE_URI'] = postgresql_url
 
-class Base(DeclarativeBase):
-  pass
+logging.info('Initializing database instance using app instance...')
 
-db = SQLAlchemy(model_class=Base)
-
-db.init(app)
+db.init_app(app)
 
 logging.info('Connecting API routes...')
 

@@ -1,13 +1,15 @@
 import re
-
+import logging
 
 def optional(check):
+    logging.info(f'Checking optional field with: {check}')
+    
     def wrapper(*args):
         assert(args.count == 1)
 
         data = args[0]
 
-        if data != None
+        if data != None:
             check(data)
 
     return wrapper
@@ -57,7 +59,6 @@ class SessionDataSchema():
             check_username(data.get('username'))
             check_password(data.get('password'))
             check_ip(data.get('ip'))
-            check_datetime(data.get('datetime'))
         except Exception as e:
             return repr(e)
         
@@ -70,8 +71,7 @@ class SessionDataSchema():
         return {
             'username': data.get('username'),
             'password': data.get('password'),
-            'ip': data.get('ip'),
-            'datetime': data.get('datetime')
+            'ip': data.get('ip')
         }
 
 
