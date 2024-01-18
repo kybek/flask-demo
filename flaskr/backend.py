@@ -8,6 +8,25 @@ import psycopg2
 import hashlib
 
 
+def use_schema(schema, need_plaintext_password=False):
+    def decorator(func):
+        def wrapper(*args):
+            assert len(args) == 1, f'Internal error: The resulting function of the decorator {__name__} takes exactly one argument'
+
+            data = args[0]
+
+            abort_if_cant_validate(data=data, schema=schema)
+
+            if need_plaintext_password == False:
+                data = hide_plaintext_password(data=data)
+
+            data = schema.prune(data)
+
+            func(data)
+        return wrapper
+    return decorator
+
+
 def user_exists(username):
     result = database.get_user_by_username(username=username)
 
@@ -57,6 +76,9 @@ def get_salted_hash(password, unqiue_salt_source):
 
 
 def hide_plaintext_password(data):
+    if data.get('password') is None:
+        return data
+    
     data.update(
         password=get_salted_hash(
             password=data.get('password'),
@@ -66,14 +88,8 @@ def hide_plaintext_password(data):
 
     return data
 
-
+@use_schema(SessionDataSchema)
 def login(session_data):
-    abort_if_cant_validate(session_data, SessionDataSchema)
-
-    session_data = SessionDataSchema.prune(session_data)
-
-    session_data = hide_plaintext_password(data=session_data)
-
     abort_if_cant_authenticate_user(
         username=session_data.get('username'),
         password=session_data.get('password')
@@ -85,13 +101,8 @@ def login(session_data):
         abort(500, message=repr(e))
 
 
+@use_schema(SessionDataSchema)
 def logout(session_data):
-    abort_if_cant_validate(session_data, SessionDataSchema)
-
-    session_data = SessionDataSchema.prune(session_data)
-
-    session_data = hide_plaintext_password(data=session_data)
-
     abort_if_cant_authenticate_user(
         username=session_data.get('username'),
         password=session_data.get('password')
@@ -103,11 +114,8 @@ def logout(session_data):
         abort(500, message=repr(e))
 
 
+@use_schema(UserSchema, need_plaintext_password=True)
 def create_user(user):
-    abort_if_cant_validate(user, UserSchema)
-
-    user = UserSchema.prune(user)
-
     abort_if_password_isnt_complex(password=user.get('password'))
 
     user = hide_plaintext_password(data=user)
@@ -118,13 +126,8 @@ def create_user(user):
         abort(500, message=repr(e))
 
 
+@use_schema(UserDeletionSchema)
 def delete_user(user_deletion):
-    abort_if_cant_validate(user_deletion, UserDeletionSchema)
-
-    user_deletion = UserDeletionSchema.prune(user_deletion)
-    
-    user_deletion = hide_plaintext_password(data=user_deletion)
-
     abort_if_cant_authenticate_user(
         username=user_deletion.get('username'),
         password=user_deletion.get('password')
@@ -137,13 +140,8 @@ def delete_user(user_deletion):
         abort(500, message=repr(e))
 
 
+@use_schema(UserModificationSchema)
 def modify_user(user_modification):
-    abort_if_cant_validate(user_modification, UserModificationSchema)
-
-    user_modification = UserModificationSchema.prune(user_modification)
-
-    user_modification = hide_plaintext_password(data=user_modification)
-
     abort_if_cant_authenticate_user(
         username=user_modification.get('username'),
         password=user_modification.get('password')
