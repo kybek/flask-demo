@@ -88,7 +88,7 @@ class SessionDataSchema():
         try:
             required(check_username)(data.get('username'))
             required(check_password)(data.get('password'))
-            required(check_ip)(data.get('ip'))
+            optional(check_ip)(data.get('ip'))
         except AssertionError as e:
             return str(e)
         except Exception as e:

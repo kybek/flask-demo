@@ -134,8 +134,12 @@ def delete_user(user_deletion):
     )
 
     try:
+        try:
+            database.delete_onlineuser(user_deletion)
+        except Exception:
+            pass
+        
         database.delete_user(user_deletion)
-        # database.delete_onlineuser() TODO
     except Exception as e:
         abort(500, message=repr(e))
 
