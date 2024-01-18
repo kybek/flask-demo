@@ -4,9 +4,9 @@ from dataclasses import dataclass
 import datetime as dt
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import ForeignKey, TIMESTAMP
+from sqlalchemy.sql import text
 import logging
 import datetime as dt
-
 
 logging.info('Creating db instance...')
 
@@ -183,6 +183,10 @@ def modify_user(user_schema):
     db.session.query(User).\
         filter(User.id == user_schema.get('id')).\
         update(user_schema)
+
+    # db.session.execute(text(f"UPDATE public.user SET middlename = 'temp' WHERE id = {user_schema.get('id')};"))
+
+    db.session.commit()
 
 
 def list_users():

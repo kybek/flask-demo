@@ -1,6 +1,6 @@
 from flask import Flask, request
 from flask_restful import Resource, Api
-from flaskr.backend import login, logout, create_user, delete_user, update_user, list_users, list_onlineusers
+from flaskr.backend import login, logout, create_user, delete_user, modify_user, list_users, list_onlineusers
 from time import gmtime, strftime
 import logging
 
@@ -31,7 +31,7 @@ class Logout(Resource):
 class UserList(Resource):
     def get(self):
         logging.info(f'GET /user/list: {request.form}')
-        
+
         return list_users(), 200
 
 
@@ -54,7 +54,7 @@ class UserDelete(Resource):
 class UserUpdate(Resource):
     def post(self, id):
         logging.info(f'POST /user/update: {request.form}')
-        update_user(dict(request.form) | {
+        modify_user(dict(request.form) | {
             'id': id
         })
 

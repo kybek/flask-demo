@@ -15,9 +15,10 @@ logging.info('Setting database connection parameters...')
 
 username='postgres'
 password='labris123!'
+database_name='postgres'
 
 # Define the PostgreSQL URL
-postgresql_url = f'postgresql://{username}:{password}@localhost:5432/postgres'
+postgresql_url = f'postgresql://{username}:{password}@localhost:5432/{database_name}'
 
 app.config['SQLALCHEMY_DATABASE_URI'] = postgresql_url
 

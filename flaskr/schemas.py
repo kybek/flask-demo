@@ -1,8 +1,9 @@
 import re
 import logging
 
+
 def required(check):
-    logging.info(f'Checking required field with: {check.__name__}')
+    logging.info(f'Checking required field {str(check.__name__).removeprefix("check_")} with: {check.__name__}')
 
     def wrapper(*args):
         assert len(args) >= 1, f'Internal error: The resulting function of the decorator {__name__} takes at least one argument'
@@ -19,7 +20,7 @@ def required(check):
 
 
 def optional(check):
-    logging.info(f'Checking optional field with: {check.__name__}')
+    logging.info(f'Checking optional field {str(check.__name__).removeprefix("check_")} with: {check.__name__}')
 
     def wrapper(*args):
         assert len(args) >= 1, f'Internal error: The resulting function of the decorator {__name__} takes at least one argument'
@@ -143,7 +144,9 @@ class UserSchema():
 class UserDeletionSchema():
     def validate(data):
         try:
-            rqeuired(check_id)(data.get('id'))
+            required(check_username)(data.get('username'))
+            required(check_password)(data.get('password'))
+            required(check_id)(data.get('id'))
 
         except Exception as e:
             return repr(e)
@@ -155,6 +158,8 @@ class UserDeletionSchema():
             return None
         
         return {
+            'username': data.get('username'),
+            'password': data.get('password'),
             'id': data.get('id')
         }
 
@@ -162,13 +167,13 @@ class UserDeletionSchema():
 class UserModificationSchema():
     def validate(data):
         try:
-            optional(check_username)(data.get('username'))
+            required(check_username)(data.get('username'))
             optional(check_name)(data.get('firstname'))
             optional(check_name)(data.get('middlename'))
             optional(check_name)(data.get('lastname'))
             optional(check_date)(data.get('birthdate'))
             optional(check_email)(data.get('email'))
-            optional(check_password)(data.get('password'))
+            required(check_password)(data.get('password'))
             required(check_id)(data.get('id'))
         except AssertionError as e:
             return str(e)
@@ -178,7 +183,7 @@ class UserModificationSchema():
         return None
     
     def prune(data):
-        if UserSchema.validate(data) != None:
+        if UserModificationSchema.validate(data) != None:
             return None
         
         return {
