@@ -31,6 +31,7 @@ class Logout(Resource):
 class UserList(Resource):
     def get(self):
         logging.info(f'GET /user/list: {request.form}')
+        
         return list_users(), 200
 
 

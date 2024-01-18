@@ -3,8 +3,9 @@ from flaskr.schemas import UserSchema, SessionDataSchema
 from dataclasses import dataclass
 import datetime as dt
 from flask_sqlalchemy import SQLAlchemy
-from sqlalchemy import ForeignKey
+from sqlalchemy import ForeignKey, TIMESTAMP
 import logging
+import datetime as dt
 
 
 logging.info('Creating db instance...')
@@ -12,7 +13,6 @@ logging.info('Creating db instance...')
 db = SQLAlchemy()
 
 logging.info('Finished creating db instance!')
-
 
 @dataclass
 class User(db.Model):
@@ -58,7 +58,7 @@ class OnlineUser(db.Model):
     # https://stackoverflow.com/a/18854791
 
     id = db.Column(db.Integer, primary_key=True)
-    created_at = db.Column(db.DateTime)
+    created_at = db.Column(TIMESTAMP)
     ip = db.Column(db.String(255))
     user_id = db.Column(db.Integer, ForeignKey(User.id), unique=True)
 
@@ -67,26 +67,53 @@ class OnlineUser(db.Model):
 
     def serialize(self):
        """Return object data in easily serializable format"""
+       logging.info(f'Serializing {type(self).__name__} object: {self.__dict__}')
+
        return {
             'id': self.id,
-            'created_at': self.created_at,
+            'created_at': self.created_at.isoformat(),
             'ip': self.ip,
             'user_id': self.user_id
        }
+    
+    def join_and_serialize(self):
+        logging.info(f'Joining {type(self).__name__} with {User.__name__} using {self.user_id}')
+        result = get_user_by_id(self.user_id)
+
+        if result == None:
+            return None
+        else:
+            user = result.serialize()
+
+            return self.serialize() | {
+                'username': user.get('username')
+            }
 
 
 def get_user_by_credentials(username, password):
-    return User.query.filter_by(username=username, password=password).first()
+    logging.info(f'Database select user with username={username}, password={password}...')
+    result = User.query.filter_by(username=username, password=password).first()
+    logging.info(f'Result: {str(result)}')
+
+    return result
 
 
 def get_user_by_id(id):
-    return db.get_or_404(User, id)
+    logging.info(f'Database select user with id={id}')
+    result = User.query.filter_by(id=id).first()
+    logging.info(f'Result: {str(result)}')
+
+    return result
+
+
+def get_user_by_username(username):
+    return User.query.filter_by(username=username).first()
 
 
 def get_onlineuser_by_credentials(username, password):
     user = get_user_by_credentials(
-        username=session_data_schema.get('username'),
-        password=session_data_schema.get('password')
+        username=username,
+        password=password
     )
 
     return OnlineUser.query.filter_by(user_id=user.id).first()
@@ -113,7 +140,7 @@ def get_onlineuser_model_object_from_schema(session_data_schema):
 
     return OnlineUser(
         id=session_data_schema.get('id'),
-        created_at=None,
+        created_at=dt.datetime.now().isoformat(),
         ip=session_data_schema.get('ip'),
         user_id=user.id
     )
@@ -164,5 +191,21 @@ def list_users():
 
 
 def list_onlineusers():
-    onlineusers = OnlineUser.query.all()
-    return [x.serialize() for x in onlineusers]
+    onlineusers = OnlineUser.query.\
+        all()
+    
+    result = [x.join_and_serialize() for x in onlineusers]
+
+    
+    if result != None and None in result:
+        logging.info('Removing nulls from result...')
+        result.remove(None)
+
+    return result
+
+
+def select_user_with_username(username):
+    return db.session.query(User).\
+        filter(User.username == username).\
+        first().\
+        serialize()
