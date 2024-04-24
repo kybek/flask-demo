@@ -1,5 +1,5 @@
 from flask import jsonify
-from flaskr.schemas import UserSchema, SessionDataSchema
+from flaskr.schemas import UserDataSchema, SessionDataSchema, NewUserDataSchema
 from dataclasses import dataclass
 import datetime as dt
 from flask_sqlalchemy import SQLAlchemy
@@ -49,11 +49,12 @@ class User(db.Model):
 
 
 @dataclass
-class OnlineUser(db.Model):
+class Session(db.Model):
     id: int
     created_at: dt.datetime
     ip: str
     user_id: int
+    token: str
 
     # https://stackoverflow.com/a/18854791
 
@@ -61,9 +62,8 @@ class OnlineUser(db.Model):
     created_at = db.Column(TIMESTAMP)
     ip = db.Column(db.String(255))
     user_id = db.Column(db.Integer, ForeignKey(User.id), unique=True)
+    token = db.Column(db.String(255))
 
-    # user = relationship('User', foreign_keys='OnlineUser.user_id')
-    # onlineuser = relationship('User', foreign_keys='OnlineUser.id')
 
     def serialize(self):
        """Return object data in easily serializable format"""
@@ -73,7 +73,8 @@ class OnlineUser(db.Model):
             'id': self.id,
             'created_at': self.created_at.isoformat(),
             'ip': self.ip,
-            'user_id': self.user_id
+            'user_id': self.user_id,
+            'token': self.token
        }
     
     def join_and_serialize(self):
@@ -88,6 +89,10 @@ class OnlineUser(db.Model):
             return self.serialize() | {
                 'username': user.get('username')
             }
+
+
+def delete_empty_fields(data):
+    return {k: v for k, v in data.items() if v}
 
 
 def get_user_by_credentials(username, password):
@@ -110,81 +115,81 @@ def get_user_by_username(username):
     return User.query.filter_by(username=username).first()
 
 
-def get_onlineuser_by_credentials(username, password):
+def get_session_by_credentials(username, password):
     user = get_user_by_credentials(
         username=username,
         password=password
     )
 
-    return OnlineUser.query.filter_by(user_id=user.id).first()
+    return Session.query.filter_by(user_id=user.id).first()
 
 
-def get_user_model_object_from_schema(user_schema):
+def get_session_by_token(token):
+    return Session.query.filter_by(token=token).first()
+
+
+def get_user_model_object_from_schema(user_data):
     return User(
-        id=user_schema.get('id'),
-        username=user_schema.get('username'),
-        firstname=user_schema.get('firstname'),
-        middlename=user_schema.get('middlename'),
-        lastname=user_schema.get('lastname'),
-        birthdate=user_schema.get('birthdate'),
-        email=user_schema.get('email'),
-        password=user_schema.get('password')
+        id=user_data.get('id'),
+        username=user_data.get('username'),
+        firstname=user_data.get('firstname'),
+        middlename=user_data.get('middlename'),
+        lastname=user_data.get('lastname'),
+        birthdate=user_data.get('birthdate'),
+        email=user_data.get('email'),
+        password=user_data.get('password')
     )
 
 
-def get_onlineuser_model_object_from_schema(session_data_schema):
-    user = get_user_by_credentials(
-        username=session_data_schema.get('username'),
-        password=session_data_schema.get('password')
-    )
-
-    return OnlineUser(
-        id=session_data_schema.get('id'),
-        created_at=dt.datetime.now().isoformat(),
-        ip=session_data_schema.get('ip'),
-        user_id=user.id
+def get_session_model_object_from_schema(session_data):
+    return Session(
+        id=session_data.get('id'),
+        created_at=session_data.get('created_at'),
+        ip=session_data.get('ip'),
+        user_id=session_data.get('user_id'),
+        token=session_data.get('token')
     )
 
 
-def insert_onlineuser(session_data_schema):
-    onlineuser = get_onlineuser_model_object_from_schema(session_data_schema=session_data_schema)
+def insert_session(session_data):
+    logging.info(f'Inserting session data to database: {session_data}')
+    session = get_session_model_object_from_schema(session_data=session_data)
 
-    db.session.add(onlineuser)
+    db.session.add(session)
     db.session.commit()
 
 
-def delete_onlineuser(session_data_schema):
-    onlineuser = get_onlineuser_by_credentials(
-        username=session_data_schema.get('username'),
-        password=session_data_schema.get('password')
+def delete_session(token):
+    session = get_session_by_token(
+        token=token
     )
 
-    db.session.delete(onlineuser)
+    db.session.delete(session)
     db.session.commit()
 
 
-def insert_user(user_schema):
-    user = get_user_model_object_from_schema(user_schema)
+def insert_user(user_data):
+    user = get_user_model_object_from_schema(user_data)
 
     db.session.add(user)
     db.session.commit()
 
 
-def delete_user(user_schema):
-    user = get_user_by_id(user_schema.get('id'))
+def delete_user(id):
+    user = get_user_by_id(id)
 
     db.session.delete(user)
     db.session.commit()
 
 
-def modify_user(user_schema):
-    user = get_user_by_id(user_schema.get('id'))
+def modify_user(user_data):
+    user = get_user_by_id(user_data.get('id'))
+
+    user_data = delete_empty_fields(user_data)
 
     db.session.query(User).\
-        filter(User.id == user_schema.get('id')).\
-        update(user_schema)
-
-    # db.session.execute(text(f"UPDATE public.user SET middlename = 'temp' WHERE id = {user_schema.get('id')};"))
+        filter(User.id == user_data.get('id')).\
+        update(user_data)
 
     db.session.commit()
 
@@ -194,11 +199,11 @@ def list_users():
     return [x.serialize() for x in users]
 
 
-def list_onlineusers():
-    onlineusers = OnlineUser.query.\
+def list_sessions():
+    sessions = Session.query.\
         all()
     
-    result = [x.join_and_serialize() for x in onlineusers]
+    result = [x.join_and_serialize() for x in sessions]
 
     
     if result != None and None in result:

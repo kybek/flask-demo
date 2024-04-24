@@ -11,21 +11,22 @@ def get_current_datetime_string():
 class Login(Resource):
     def post(self):
         logging.info(f'POST /login: {request.form}')
-        login(dict(request.form) | {
+
+        result = login(dict(request.form) | {
             'ip': request.remote_addr
         })
 
-        return 'Logged in', 200
+        logging.info(f'Responding with the token: {result}')
+        return result, 200
 
 
 class Logout(Resource):
     def post(self):
         logging.info(f'POST /logout: {request.form}')
-        logout(dict(request.form) | {
-            'ip': request.remote_addr
-        })
 
-        return 'Logged out', 200
+        result = logout(dict(request.form))
+
+        return '', 204
 
 
 class UserList(Resource):
@@ -38,28 +39,38 @@ class UserList(Resource):
 class UserCreate(Resource):
     def post(self):
         logging.info(f'POST /user/create: {request.form}')
+
         create_user(dict(request.form))
 
-        return 'Created user', 200
+        return '', 204
 
 
 class UserDelete(Resource):
     def post(self, id):
         logging.info(f'POST /user/delete: {request.form}')
+
         delete_user(dict(request.form) | {
             'id': id
         })
+
+        return '', 204
 
 
 class UserUpdate(Resource):
     def post(self, id):
         logging.info(f'POST /user/update: {request.form}')
+
         modify_user(dict(request.form) | {
             'id': id
         })
+
+        return '', 204
 
 
 class OnlineUsers(Resource):
     def get(self):
         logging.info(f'GET /onlineusers: {request.form}')
-        return list_onlineusers(), 200
+
+        result = list_onlineusers()
+
+        return result, 200

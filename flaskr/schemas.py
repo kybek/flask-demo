@@ -1,5 +1,6 @@
 import re
 import logging
+from flask_restful import abort
 
 
 def required(check):
@@ -33,6 +34,26 @@ def optional(check):
             logging.info(f'Data isn\'t empty, sending to {check.__name__}...')
             check(data)
             logging.info('Passed the check!')
+
+    return wrapper
+
+
+def validator(func):
+    def wrapper(*args):
+        assert len(args) == 1, f'Internal error: The resulting function of the decorator {__name__} takes exactly one argument'
+
+        data = args[0]
+
+        try:
+            func(data)
+        except AssertionError as e:
+            abort(500, message=str(e))
+        except Exception as e:
+            abort(500, message=repr(e))
+        
+        logging.info('Validated!')
+
+        return None
 
     return wrapper
 
@@ -83,21 +104,23 @@ def check_id(id):
     assert type(id) == int and id > 0
 
 
-class SessionDataSchema():
-    def validate(data):
-        try:
-            required(check_username)(data.get('username'))
-            required(check_password)(data.get('password'))
-            optional(check_ip)(data.get('ip'))
-        except AssertionError as e:
-            return str(e)
-        except Exception as e:
-            return repr(e)
-        
-        return None
+def check_token(token):
+    logging.info('Validating token')
+    # Alphanumeric without space
+    assert re.match(r"^[a-zA-Z0-9_-]*$", token), "Token must be alphanumeric"
 
-    def prune(data):
-        if SessionDataSchema.validate(data) != None:
+
+class LoginFormSchema():
+    @validator
+    def validate(data):
+        required(check_username)(data.get('username'))
+        required(check_password)(data.get('password'))
+        required(check_ip)(data.get('ip'))
+
+    def serialize(data):
+        logging.info(f'Serializing the data: {data}')
+
+        if LoginFormSchema.validate(data) != None:
             return None
         
         return {
@@ -107,92 +130,145 @@ class SessionDataSchema():
         }
 
 
-class UserSchema():
+class SessionDataSchema():
+    @validator
     def validate(data):
-        try:
-            required(check_username)(data.get('username'))
-            optional(check_name)(data.get('firstname'))
-            optional(check_name)(data.get('middlename'))
-            optional(check_name)(data.get('lastname'))
-            optional(check_date)(data.get('birthdate'))
-            required(check_email)(data.get('email'))
-            required(check_password)(data.get('password'))
-            optional(check_id)(data.get('id'))
-        except AssertionError as e:
-            return str(e)
-        except Exception as e:
-            return repr(e)
+        required(check_datetime)(data.get('created_at'))
+        required(check_ip)(data.get('ip'))
+        required(check_id)(data.get('user_id'))
+        required(check_token)(data.get('token'))
+
+    def serialize(data):
+        logging.info(f'Serializing the data: {data}')
+
+        if SessionDataSchema.validate(data) != None:
+            return None
         
-        return None
+        return {
+            'created_at': data.get('created_at'),
+            'ip': data.get('ip'),
+            'user_id': data.get('user_id'),
+            'token': data.get('token')
+        }
+
+
+class TokenDataSchema():
+    @validator
+    def validate(data):
+        required(check_token)(data.get('token'))
+
+    def serialize(data):
+        logging.info(f'Serializing the data: {data}')
+
+        if TokenDataSchema.validate(data) != None:
+            return None
+        
+        return {
+            'token': data.get('token')
+        }
+
+
+class NewUserDataSchema():
+    @validator
+    def validate(data):
+        required(check_username)(data.get('username'))
+        required(check_email)(data.get('email'))
+        required(check_password)(data.get('password'))
+        optional(check_name)(data.get('firstname'))
+        optional(check_name)(data.get('middlename'))
+        optional(check_name)(data.get('lastname'))
+        optional(check_date)(data.get('birthdate'))
+        optional(check_id)(data.get('id'))
     
-    def prune(data):
-        if UserSchema.validate(data) != None:
+    def serialize(data):
+        logging.info(f'Serializing the data: {data}')
+
+        if NewUserDataSchema.validate(data) != None:
             return None
         
         return {
             'username': data.get('username'),
+            'email': data.get('email'),
+            'password': data.get('password'),
             'firstname': data.get('firstname'),
             'middlename': data.get('middlename'),
             'lastname': data.get('lastname'),
             'birthdate': data.get('birthdate'),
+            'id': data.get('id')
+        }
+
+
+class UserDataSchema():
+    @validator
+    def validate(data):
+        optional(check_username)(data.get('username'))
+        optional(check_email)(data.get('email'))
+        optional(check_password)(data.get('password'))
+        optional(check_name)(data.get('firstname'))
+        optional(check_name)(data.get('middlename'))
+        optional(check_name)(data.get('lastname'))
+        optional(check_date)(data.get('birthdate'))
+        optional(check_id)(data.get('id'))
+    
+    def serialize(data):
+        logging.info(f'Serializing the data: {data}')
+
+        if UserDataSchema.validate(data) != None:
+            return None
+        
+        return {
+            'username': data.get('username'),
             'email': data.get('email'),
             'password': data.get('password'),
+            'firstname': data.get('firstname'),
+            'middlename': data.get('middlename'),
+            'lastname': data.get('lastname'),
+            'birthdate': data.get('birthdate'),
             'id': data.get('id')
         }
 
 
 class UserDeletionSchema():
+    @validator
     def validate(data):
-        try:
-            required(check_username)(data.get('username'))
-            required(check_password)(data.get('password'))
-            required(check_id)(data.get('id'))
-
-        except Exception as e:
-            return repr(e)
-        
-        return None
+        required(check_token)(data.get('token'))
+        required(check_id)(data.get('id'))
     
-    def prune(data):
+    def serialize(data):
+        logging.info(f'Serializing the data: {data}')
+
         if UserDeletionSchema.validate(data) != None:
             return None
         
         return {
-            'username': data.get('username'),
-            'password': data.get('password'),
+            'token': data.get('token'),
             'id': data.get('id')
         }
 
 
 class UserModificationSchema():
+    @validator
     def validate(data):
-        try:
-            required(check_username)(data.get('username'))
-            optional(check_name)(data.get('firstname'))
-            optional(check_name)(data.get('middlename'))
-            optional(check_name)(data.get('lastname'))
-            optional(check_date)(data.get('birthdate'))
-            optional(check_email)(data.get('email'))
-            required(check_password)(data.get('password'))
-            required(check_id)(data.get('id'))
-        except AssertionError as e:
-            return str(e)
-        except Exception as e:
-            return repr(e)
-        
-        return None
+        required(check_token)(data.get('token'))
+        optional(check_name)(data.get('firstname'))
+        optional(check_name)(data.get('middlename'))
+        optional(check_name)(data.get('lastname'))
+        optional(check_date)(data.get('birthdate'))
+        optional(check_email)(data.get('email'))
+        required(check_id)(data.get('id'))
     
-    def prune(data):
+    def serialize(data):
+        logging.info(f'Serializing the data: {data}')
+
         if UserModificationSchema.validate(data) != None:
             return None
         
         return {
-            'username': data.get('username'),
+            'token': data.get('token'),
             'firstname': data.get('firstname'),
             'middlename': data.get('middlename'),
             'lastname': data.get('lastname'),
             'birthdate': data.get('birthdate'),
             'email': data.get('email'),
-            'password': data.get('password'),
             'id': data.get('id')
         }
